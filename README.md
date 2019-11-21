@@ -10,6 +10,9 @@ Users can also send private messages directly to other users.
 ## Prerequisites
 
 ## Install & Run
+```
+mvn clean verify
+```
 
 ## Technology
 
