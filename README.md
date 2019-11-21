@@ -8,51 +8,12 @@ This communication system employs a central server which _relays_ messages to ot
 Users can also send private messages directly to other users. 
 
 ## Prerequisites
-* Ensure you can run Python 3 from the command line. You can check this by running:
-
-```
-python --version
-```
-
-If you do not have Python 3 installed, go here: [Download the latest version of Python](https://www.python.org/downloads/)
-
-* Ensure you can run pip from the command line. You can check this by running:
-
-```
-pip --version
-```
-
-If you do not have pip installed, go here: [Installing pip with get-pip.py](https://pip.pypa.io/en/stable/installing/#installing-with-get-pip-py)
-
-* Ensure pip, setuptools, and wheel are up to date by running:
-
-```
-python -m pip install --upgrade pip setuptools wheel
-```
 
 ## Install & Run
 
-```sh
-$ pip3 install irc
-$ irc                    
-```
-
-**Upgrade:**
-```sh
-$ pip3 install --upgrade irc
-```
-
 ## Technology
 
-* Python 3.7
-
 ## Testing
-
-Enter the following command to run unit tests:
-
-```
-pytest
-```
 
 ## Credits
 
