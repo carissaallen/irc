@@ -42,7 +42,7 @@ public class ChatServer {
     roomMap = new HashMap<>();
     try {
       serverSocket = new ServerSocket(port);
-    } catch(Exception e) {
+    } catch (Exception e) {
       e.printStackTrace();
       System.exit(1);
     }
@@ -64,7 +64,7 @@ public class ChatServer {
         ServerThread serverThread = new ServerThread(clientSocket, threadCount);
         pool.execute(serverThread);
         threadMap.put(threadCount, serverThread);
-      } catch(Exception e) {
+      } catch (Exception e) {
         e.printStackTrace();
         if(!(e instanceof SocketException)) {
           System.exit(1);
@@ -75,7 +75,7 @@ public class ChatServer {
       // TODO - clear internal data and close client socket connections
       pool.shutdown();
       serverSocket.close();
-    } catch(Exception e) {
+    } catch (Exception e) {
       e.printStackTrace();
     }
     System.exit(0);
@@ -163,18 +163,18 @@ public class ChatServer {
       try {
         in = new ObjectInputStream(clientSocket.getInputStream());
         out = new ObjectOutputStream(clientSocket.getOutputStream());
-      } catch(Exception e) {
+      } catch (Exception e) {
         e.printStackTrace();
       }
     }
 
     public void run() {
-      while(!shutdownThread) {
+      while (!shutdownThread) {
         try {
-          String str = (String) in.readObject();
-          sysout.println(str);
-        } catch(Exception e) {
-          if(e instanceof EOFException)
+          Packet packet = (Packet) in.readObject();
+          packetHandler(packet, id);
+        } catch (Exception e) {
+          if (e instanceof EOFException)
             shutdownThread = true;
           else
             e.printStackTrace();
@@ -184,7 +184,16 @@ public class ChatServer {
         out.close();
         in.close();
         clientSocket.close();
-      } catch(Exception e) {
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+    }
+
+    private void sendPacket(Packet packet) {
+      try {
+        out.writeObject(packet);
+        out.flush();
+      } catch (Exception e) {
         e.printStackTrace();
       }
     }

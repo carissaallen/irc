@@ -1,6 +1,8 @@
 package edu.psu.cs.irc;
 
-class Packet {
+import java.io.Serializable;
+
+class Packet implements Serializable {
   String command;
   int targetid;
   String message;
