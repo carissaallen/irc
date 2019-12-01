@@ -101,7 +101,7 @@ public class Client {
   }
 
   public static void main(String [] args) {
-    Client myClient = new Client("localhost", 666);
-    myClient.startClient();
+    Client chatClient = new Client("localhost", 666);
+    chatClient.startClient();
   }
 }

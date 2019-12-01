@@ -5,7 +5,7 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class ChatServer {
+public class Server extends Thread {
   /**
    * Data Members
    *
@@ -25,13 +25,13 @@ public class ChatServer {
    * @param port: port number to start the server listening on
    * @param threadLimit: max number of concurrently running threads allowed
    */
-  private ChatServer(int port, int threadLimit) {
+  private Server(int port, int threadLimit) {
     this.port = port;
     this.threadLimit = threadLimit;
   }
 
   /**
-   * startServer - Initializes server to clean state and calls runServer.
+   * Initializes server to clean state and calls runServer.
    */
   private void startServer() {
     sysout.println("Starting up server...");
@@ -50,7 +50,7 @@ public class ChatServer {
   }
 
   /**
-   * runServer - Initializes thread pool and runs infinite listen loop to receive incoming connection requests.
+   * Initializes thread pool and runs infinite loop to listen for incoming connection requests.
    * Exits the loop upon call of stopServer, which sets shutdown to true, thus exiting the loop and cleaning up.
    */
   private void runServer() {
@@ -82,7 +82,7 @@ public class ChatServer {
   }
 
   /**
-   * stopServer - Sets shutdown to true, thus exiting the infinite incoming connection loop and closing the server.
+   * Sets shutdown to true, thus exiting the infinite incoming connection loop and closing the server.
    */
   private void stopServer() {
     sysout.println("System: Shutting down...");
@@ -90,7 +90,7 @@ public class ChatServer {
   }
 
   /**
-   * packetHandler - Takes a packet from a specified user and determines what action to take given the packet's command value.
+   * Takes a packet from a specified user and determines what action to take given the packet's command value.
    * @param packet - packet containing data from the user
    * @param senderid - id # of the user that sent the packet
    */
@@ -214,8 +214,8 @@ public class ChatServer {
   }
 
   public static void main(String[] args) {
-    ChatServer myServer = new ChatServer(666, 20);
-    myServer.startServer();
+    Server chatServer = new Server(666, 20);
+    chatServer.startServer();
   }
 }
 
