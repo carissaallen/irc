@@ -6,7 +6,7 @@ import java.io.ObjectOutputStream;
 import java.io.PrintStream;
 import java.net.Socket;
 
-public class ChatClient {
+public class Client {
   /**
    * Data Members
    *
@@ -25,7 +25,7 @@ public class ChatClient {
    * Parameterized Constructor
    *
    */
-  ChatClient(String ip, int port) {
+  Client(String ip, int port) {
     this.ip = ip;
     this.port = port;
   }
@@ -101,7 +101,7 @@ public class ChatClient {
   }
 
   public static void main(String [] args) {
-    ChatClient myClient = new ChatClient("localhost", 666);
+    Client myClient = new Client("localhost", 666);
     myClient.startClient();
   }
 }
