@@ -9,7 +9,6 @@ import java.net.Socket;
 public class Client {
   /**
    * Data Members
-   *
    */
   private PrintStream sysout = System.out;
   private String ip;
@@ -23,7 +22,6 @@ public class Client {
 
   /**
    * Parameterized Constructor
-   *
    */
   Client(String ip, int port) {
     this.ip = ip;
@@ -47,12 +45,12 @@ public class Client {
 
   private void runClient() {
     // packet listening loop
-    while(!shutdown) {
+    while (!shutdown) {
       try {
         Packet packet = (Packet) in.readObject();
         packetHandler(packet);
       } catch (Exception e) {
-        if(e instanceof EOFException)
+        if (e instanceof EOFException)
           shutdown = true;
         else
           e.printStackTrace();
@@ -80,7 +78,7 @@ public class Client {
 
   private void packetHandler(Packet packet) {
     String command = packet.command;
-    switch(command) {
+    switch (command) {
       case "joinServer":
         //TODO
       case "joinRoom":
@@ -100,7 +98,7 @@ public class Client {
     }
   }
 
-  public static void main(String [] args) {
+  public static void main(String[] args) {
     Client chatClient = new Client("localhost", 666);
     chatClient.startClient();
   }

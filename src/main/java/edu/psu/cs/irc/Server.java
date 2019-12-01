@@ -8,7 +8,6 @@ import java.util.concurrent.*;
 public class Server extends Thread {
   /**
    * Data Members
-   *
    */
   private PrintStream sysout = System.out;
   private int port;
@@ -22,7 +21,8 @@ public class Server extends Thread {
 
   /**
    * Parameterized Constructor
-   * @param port: port number to start the server listening on
+   *
+   * @param port:        port number to start the server listening on
    * @param threadLimit: max number of concurrently running threads allowed
    */
   private Server(int port, int threadLimit) {
@@ -56,7 +56,7 @@ public class Server extends Thread {
   private void runServer() {
     ExecutorService pool = Executors.newFixedThreadPool(threadLimit);
     // loop for accepting client connection requests
-    while(!shutdown) {
+    while (!shutdown) {
       try {
         Socket clientSocket = serverSocket.accept();
         ++threadCount;
@@ -66,7 +66,7 @@ public class Server extends Thread {
         threadMap.put(threadCount, serverThread);
       } catch (Exception e) {
         e.printStackTrace();
-        if(!(e instanceof SocketException)) {
+        if (!(e instanceof SocketException)) {
           System.exit(1);
         }
       }
@@ -91,7 +91,8 @@ public class Server extends Thread {
 
   /**
    * Takes a packet from a specified user and determines what action to take given the packet's command value.
-   * @param packet - packet containing data from the user
+   *
+   * @param packet   - packet containing data from the user
    * @param senderid - id # of the user that sent the packet
    */
   private void packetHandler(Packet packet, int senderid) {
@@ -129,22 +130,30 @@ public class Server extends Thread {
   private void joinServer(int senderid, String username) {
 
   }
+
   private void sendMessageAll(int senderid, String messsage) {
 
   }
+
   private void sendMessageUser(int senderid, int targetid, String message) {
 
   }
+
   private void sendMessageRoom(int senderid, int targetid, String message) {
 
   }
+
   private void createRoom(int senderid, String roomName) {
 
   }
+
   private void joinRoom(int senderid, int targetid) {
 
   }
-  private void leaveRoom(int senderid, int targetid) {}
+
+  private void leaveRoom(int senderid, int targetid) {
+  }
+
   private void displayRoom(int senderid, int targetid) {
 
   }
@@ -218,14 +227,3 @@ public class Server extends Thread {
     chatServer.startServer();
   }
 }
-
-
-
-
-
-
-
-
-
-
-
