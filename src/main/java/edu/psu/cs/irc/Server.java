@@ -1,15 +1,17 @@
 package edu.psu.cs.irc;
 
+import javax.swing.*;
+import java.awt.*;
+import java.awt.event.*;
 import java.io.*;
 import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 
-public class Server extends Thread {
+public class Server extends JFrame implements ActionListener {
   /**
-   * Data Members
+   * Server Data Members
    */
-  private PrintStream sysout = System.out;
   private int port;
   private int threadLimit;
   private ServerSocket serverSocket;
@@ -20,21 +22,36 @@ public class Server extends Thread {
   private Map<Integer, ServerRoom> roomMap; // mapping of room id #s to ServerRooms
 
   /**
-   * Parameterized Constructor
+   * GUI Data Members
+   */
+  private String hostname = "HOST";
+  private JTextArea chatDisplay;
+  private JTextField textInput;
+  private JTextArea userDisplay;
+  private JTextArea roomDisplay;
+  private String onlineUserList;
+  private String activeRoomList;
+
+  /**
+   * Parameterized Constructor - initializes title and GUI setup
    *
    * @param port:        port number to start the server listening on
    * @param threadLimit: max number of concurrently running threads allowed
    */
   private Server(int port, int threadLimit) {
+    super("IRC Server");
+    serverGUISetup();
     this.port = port;
     this.threadLimit = threadLimit;
   }
+
+  // SERVER METHODS
 
   /**
    * Initializes server to clean state and calls runServer.
    */
   private void startServer() {
-    sysout.println("Starting up server...");
+    System.out.println("Starting up server...");
     shutdown = false;
     threadCount = 0;
     roomCount = 0;
@@ -42,10 +59,12 @@ public class Server extends Thread {
     roomMap = new HashMap<>();
     try {
       serverSocket = new ServerSocket(port);
+      serverSocket.setSoTimeout(1000);
     } catch (Exception e) {
       e.printStackTrace();
       System.exit(1);
     }
+    setVisible(true);
     runServer();
   }
 
@@ -60,17 +79,20 @@ public class Server extends Thread {
       try {
         Socket clientSocket = serverSocket.accept();
         ++threadCount;
-        sysout.println("System: New client connected - id # " + threadCount);
+        System.out.println("System: New client connected - id # " + threadCount);
         ServerThread serverThread = new ServerThread(clientSocket, threadCount);
         pool.execute(serverThread);
         threadMap.put(threadCount, serverThread);
       } catch (Exception e) {
+        if(e instanceof SocketTimeoutException)
+          continue;
         e.printStackTrace();
         if (!(e instanceof SocketException)) {
           System.exit(1);
         }
       }
     }
+    // shutdown sequence once loop breaks
     try {
       // TODO - clear internal data and close client socket connections
       pool.shutdown();
@@ -85,7 +107,7 @@ public class Server extends Thread {
    * Sets shutdown to true, thus exiting the infinite incoming connection loop and closing the server.
    */
   private void stopServer() {
-    sysout.println("System: Shutting down...");
+    System.out.println("Shutting server down...");
     shutdown = true;
   }
 
@@ -152,12 +174,106 @@ public class Server extends Thread {
   }
 
   private void leaveRoom(int senderid, int targetid) {
+
   }
 
   private void displayRoom(int senderid, int targetid) {
 
   }
 
+  // GUI METHODS
+
+  /**
+   * Initializes the GUI for the server
+   */
+  private void serverGUISetup() {
+    setSize(900, 500);
+    setResizable(false);
+    // call stopServer function on close
+    setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+    addWindowListener(new WindowAdapter() {
+      @Override
+      public void windowClosing(WindowEvent e) {
+        super.windowClosing(e);
+        stopServer();
+      }
+    });
+
+    JPanel panel = new JPanel();
+    panel.setLayout(new GridBagLayout());
+    add(panel);
+
+    GridBagConstraints gbc = new GridBagConstraints();
+    gbc.insets = new Insets(3, 3, 3, 3);
+    gbc.fill = GridBagConstraints.VERTICAL;
+
+    // initialize active user list display
+    userDisplay = new JTextArea(25, 15);
+    userDisplay.setLineWrap(false);
+    userDisplay.setEditable(false);
+    JScrollPane userDisplayScroll = new JScrollPane(userDisplay);
+    gbc.gridx = 0;
+    gbc.gridy = 0;
+    gbc.gridwidth = 1;
+    gbc.gridheight = 3;
+    panel.add(userDisplayScroll, gbc);
+
+    // initializes active room list display
+    roomDisplay = new JTextArea(25,15);
+    roomDisplay.setLineWrap(false);
+    roomDisplay.setEditable(false);
+    JScrollPane roomDisplayScroll = new JScrollPane(roomDisplay);
+    gbc.gridx = 1;
+    gbc.gridy = 0;
+    gbc.gridwidth = 1;
+    gbc.gridheight = 3;
+    panel.add(roomDisplayScroll, gbc);
+
+    // initialize chat dialogue display
+    chatDisplay = new JTextArea(25, 40);
+    chatDisplay.setText("System: Welcome to the Chat Server!");
+    chatDisplay.setLineWrap(true);
+    chatDisplay.setEditable(false);
+    JScrollPane chatDisplayScroll = new JScrollPane(chatDisplay);
+    gbc.gridx = 2;
+    gbc.gridy = 0;
+    gbc.gridwidth = 2;
+    gbc.gridheight = 1;
+    panel.add(chatDisplayScroll, gbc);
+
+    // initialize text input field
+    textInput = new JTextField(33);
+    textInput.addActionListener(this);
+    gbc.gridx = 2;
+    gbc.gridy = 1;
+    gbc.gridwidth = 1;
+    gbc.gridheight = 1;
+    panel.add(textInput, gbc);
+
+    // initialize send button
+    JButton sendButton = new JButton("Send");
+    sendButton.addActionListener(this);
+    gbc.gridx = 3;
+    gbc.gridy = 1;
+    gbc.gridwidth = 1;
+    gbc.gridheight = 1;
+    panel.add(sendButton, gbc);
+  }
+
+  /**
+   *
+   */
+  public void actionPerformed(ActionEvent event) {
+    String userInput = textInput.getText();
+    if(userInput.equals("")) return;
+    textInput.setText("");
+    // TODO - implement action listener
+  }
+
+
+  /**
+   *
+   */
   class ServerThread implements Runnable {
     Socket clientSocket;
     int id;
