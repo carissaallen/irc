@@ -1,4 +1,4 @@
-package com.psu.cs.irc;
+package edu.psu.cs.irc;
 
 public class MainTest {
 }
