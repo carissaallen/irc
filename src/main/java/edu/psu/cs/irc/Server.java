@@ -12,9 +12,11 @@ public class Server extends JFrame implements ActionListener {
   /**
    * Server Data Members
    */
-  private int port;
-  private int threadLimit;
+  private int threadLimit = 20;
+  private ConnectionListener connectionListener;
   private ServerSocket serverSocket;
+  ExecutorService pool;
+  private boolean serverHosted;
   private boolean shutdown;
   private int threadCount;
   private int roomCount;
@@ -24,7 +26,8 @@ public class Server extends JFrame implements ActionListener {
   /**
    * GUI Data Members
    */
-  private String hostname = "HOST";
+  private LoginMenu loginMenu;
+  private String hostname;
   private JTextArea chatDisplay;
   private JTextField textInput;
   private JTextArea userDisplay;
@@ -33,25 +36,74 @@ public class Server extends JFrame implements ActionListener {
   private String activeRoomList;
 
   /**
-   * Parameterized Constructor - initializes title and GUI setup
-   *
-   * @param port:        port number to start the server listening on
-   * @param threadLimit: max number of concurrently running threads allowed
+   * Constructor
    */
-  private Server(int port, int threadLimit) {
+  private Server() {
     super("IRC Server");
+    System.out.println("Starting up server application...");
     serverGUISetup();
-    this.port = port;
-    this.threadLimit = threadLimit;
+    loginMenu = new LoginMenu();
+    loginMenu.setVisible(true);
+  }
+
+  /**
+   *
+   */
+  private class ConnectionListener implements Runnable {
+    /**
+     * Initializes thread pool and runs infinite loop to listen for incoming connection requests.
+     * Exits the loop upon call of stopServer, which sets shutdown to true, thus exiting the loop and cleaning up.
+     */
+    @Override
+    public void run() {
+      ExecutorService pool = Executors.newFixedThreadPool(threadLimit);
+      // loop for accepting client connection requests
+      while (!shutdown) {
+        try {
+          Socket clientSocket = serverSocket.accept();
+          ++threadCount;
+          System.out.println("System: New client connected - id # " + threadCount);
+          ServerThread serverThread = new ServerThread(clientSocket, threadCount);
+          pool.execute(serverThread);
+          threadMap.put(threadCount, serverThread);
+        } catch (Exception e) {
+          if(e instanceof SocketTimeoutException)
+            continue;
+          e.printStackTrace();
+          if (!(e instanceof SocketException)) {
+            System.exit(1);
+          }
+        }
+      }
+      // shutdown sequence once loop breaks
+      try {
+        // TODO - clear internal data and close client socket connections
+        pool.shutdown();
+        serverSocket.close();
+      } catch (Exception e) {
+        e.printStackTrace();
+      }
+      setVisible(false);
+      loginMenu.setVisible(true);
+    }
   }
 
   // SERVER METHODS
 
   /**
+   * Closes the server application
+   */
+  private void closeServer() {
+    System.out.println("Closing server application...");
+    System.exit(0);
+  }
+
+  /**
    * Initializes server to clean state and calls runServer.
    */
-  private void startServer() {
+  private boolean startServer(int port, String username) {
     System.out.println("Starting up server...");
+    hostname = username;
     shutdown = false;
     threadCount = 0;
     roomCount = 0;
@@ -62,52 +114,28 @@ public class Server extends JFrame implements ActionListener {
       serverSocket.setSoTimeout(1000);
     } catch (Exception e) {
       e.printStackTrace();
-      System.exit(1);
+      return false;
     }
+    pool = Executors.newFixedThreadPool(threadLimit);
+    System.out.println("Success! Server now hosted.");
     setVisible(true);
-    runServer();
+    loginMenu.setVisible(false);
+    return true;
   }
 
   /**
-   * Initializes thread pool and runs infinite loop to listen for incoming connection requests.
-   * Exits the loop upon call of stopServer, which sets shutdown to true, thus exiting the loop and cleaning up.
+   *
    */
-  private void runServer() {
-    ExecutorService pool = Executors.newFixedThreadPool(threadLimit);
-    // loop for accepting client connection requests
-    while (!shutdown) {
-      try {
-        Socket clientSocket = serverSocket.accept();
-        ++threadCount;
-        System.out.println("System: New client connected - id # " + threadCount);
-        ServerThread serverThread = new ServerThread(clientSocket, threadCount);
-        pool.execute(serverThread);
-        threadMap.put(threadCount, serverThread);
-      } catch (Exception e) {
-        if(e instanceof SocketTimeoutException)
-          continue;
-        e.printStackTrace();
-        if (!(e instanceof SocketException)) {
-          System.exit(1);
-        }
-      }
-    }
-    // shutdown sequence once loop breaks
-    try {
-      // TODO - clear internal data and close client socket connections
-      pool.shutdown();
-      serverSocket.close();
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    System.exit(0);
+  private void runConnectionListener() {
+    connectionListener = new ConnectionListener();
+    pool.execute(connectionListener);
   }
 
   /**
-   * Sets shutdown to true, thus exiting the infinite incoming connection loop and closing the server.
+   * Sets shutdown to true, thus exiting the infinite incoming connection loop and stopping the server.
    */
   private void stopServer() {
-    System.out.println("Shutting server down...");
+    System.out.println("Stopping server...");
     shutdown = true;
   }
 
@@ -193,12 +221,13 @@ public class Server extends JFrame implements ActionListener {
     setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
     addWindowListener(new WindowAdapter() {
       @Override
-      public void windowClosing(WindowEvent e) {
-        super.windowClosing(e);
+      public void windowClosing(WindowEvent event) {
+        super.windowClosing(event);
         stopServer();
       }
     });
 
+    // panel holding all individual displays in grid bag layout
     JPanel panel = new JPanel();
     panel.setLayout(new GridBagLayout());
     add(panel);
@@ -268,6 +297,7 @@ public class Server extends JFrame implements ActionListener {
     if(userInput.equals("")) return;
     textInput.setText("");
     // TODO - implement action listener
+    System.out.println("A thing!");
   }
 
 
@@ -293,6 +323,7 @@ public class Server extends JFrame implements ActionListener {
       }
     }
 
+    @Override
     public void run() {
       while (!shutdownThread) {
         try {
@@ -338,8 +369,114 @@ public class Server extends JFrame implements ActionListener {
     }
   }
 
+  /**
+   *
+   */
+  private class LoginMenu extends JFrame implements ActionListener {
+    // Data Members
+    JTextArea feedback;
+    JTextField portField;
+    JTextField usernameField;
+    JButton startButton;
+    JButton clearButton;
+
+    /**
+     * Constructor
+     */
+    LoginMenu() {
+      super("IRC Server");
+      loginGUISetup();
+    }
+
+    /**
+     * initializes the GUI for the login menu
+     */
+    private void loginGUISetup() {
+      setSize(550,250);
+      setResizable(false);
+      setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
+      addWindowListener(new WindowAdapter() {
+        @Override
+        public void windowClosing(WindowEvent event) {
+          super.windowClosing(event);
+          closeServer();
+        }
+      });
+
+      JPanel panel = new JPanel();
+      add(panel);
+
+      // initialize feedback display
+      feedback = new JTextArea(5,40);
+      feedback.setText("Welcome to the IRC Server!");
+      feedback.setLineWrap(true);
+      feedback.setEditable(false);
+      panel.add(new JScrollPane(feedback));
+
+      // initialize port number field
+      panel.add(new JLabel("Port Number"));
+      portField = new JTextField();
+      portField.setColumns(33);
+      panel.add(portField);
+
+      // initialize username field
+      panel.add(new JLabel("Username"));
+      usernameField = new JTextField();
+      usernameField.setColumns(33);
+      panel.add(usernameField);
+
+      // initialize connect button
+      startButton = new JButton("Start Server");
+      startButton.addActionListener(this);
+      panel.add(startButton);
+
+      // initialize clear button
+      clearButton = new JButton("Clear");
+      clearButton.addActionListener(this);
+      panel.add(clearButton);
+    }
+
+    /**
+     * appends feedback to the feedback display in the login menu
+     * @param message - String of feedback to be appended to display
+     */
+    private void displayFeedback(String message) {
+      feedback.append("\n" + message);
+      feedback.setCaretPosition(feedback.getDocument().getLength());
+    }
+
+    /**
+     * on an action event occuring in the login menu, this function is called
+     * @param event - ActionEvent object representing an event that has occurred in the login menu
+     */
+    public void actionPerformed(ActionEvent event) {
+      // start server button pressed
+      if (event.getSource() == startButton) {
+        String portString = portField.getText();
+        String username = usernameField.getText();
+        if (portString.equals("") || username.equals("")) {
+          displayFeedback("Please fill out the necessary fields to connect.");
+          return;
+        }
+        int port;
+        try {
+          port = Integer.parseInt(portString);
+        } catch (Exception e) {
+          displayFeedback(portString + " is not a valid port number.");
+          return;
+        }
+        displayFeedback("Attempting to host server on port " + portString + "...");
+        if (!startServer(port, username)) {
+          displayFeedback("Unable to host server.");
+          return;
+        }
+        displayFeedback("Success! Server hosted on port " + portString + ".");
+        runConnectionListener();
+      }
+    }
+  }
+
   public static void main(String[] args) {
-    Server chatServer = new Server(666, 20);
-    chatServer.startServer();
+    Server server = new Server();
   }
 }
