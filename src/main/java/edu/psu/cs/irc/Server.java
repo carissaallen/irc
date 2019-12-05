@@ -15,7 +15,7 @@ public class Server extends JFrame implements ActionListener {
   private int threadLimit = 20;
   private ConnectionListener connectionListener;
   private ServerSocket serverSocket;
-  ExecutorService pool;
+  private ExecutorService pool;
   private boolean serverHosted;
   private boolean shutdown;
   private int threadCount;
@@ -44,48 +44,7 @@ public class Server extends JFrame implements ActionListener {
     serverGUISetup();
     loginMenu = new LoginMenu();
     loginMenu.setVisible(true);
-  }
-
-  /**
-   *
-   */
-  private class ConnectionListener implements Runnable {
-    /**
-     * Initializes thread pool and runs infinite loop to listen for incoming connection requests.
-     * Exits the loop upon call of stopServer, which sets shutdown to true, thus exiting the loop and cleaning up.
-     */
-    @Override
-    public void run() {
-      ExecutorService pool = Executors.newFixedThreadPool(threadLimit);
-      // loop for accepting client connection requests
-      while (!shutdown) {
-        try {
-          Socket clientSocket = serverSocket.accept();
-          ++threadCount;
-          System.out.println("System: New client connected - id # " + threadCount);
-          ServerThread serverThread = new ServerThread(clientSocket, threadCount);
-          pool.execute(serverThread);
-          threadMap.put(threadCount, serverThread);
-        } catch (Exception e) {
-          if(e instanceof SocketTimeoutException)
-            continue;
-          e.printStackTrace();
-          if (!(e instanceof SocketException)) {
-            System.exit(1);
-          }
-        }
-      }
-      // shutdown sequence once loop breaks
-      try {
-        // TODO - clear internal data and close client socket connections
-        pool.shutdown();
-        serverSocket.close();
-      } catch (Exception e) {
-        e.printStackTrace();
-      }
-      setVisible(false);
-      loginMenu.setVisible(true);
-    }
+    System.out.println("Success! Server application started.");
   }
 
   // SERVER METHODS
@@ -93,16 +52,32 @@ public class Server extends JFrame implements ActionListener {
   /**
    * Closes the server application
    */
-  private void closeServer() {
+  private void closeServerApplication() {
     System.out.println("Closing server application...");
+    if(serverHosted) {
+      stopServer();
+      while(serverHosted) {
+        try {
+          Thread.sleep(1000);
+          System.out.print(".");
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+      }
+      System.out.println();
+    }
+    System.out.println("See ya next time!");
     System.exit(0);
   }
 
   /**
-   * Initializes server to clean state and calls runServer.
+   * Initializes server to clean state with:
+   * 1) functioning socket that can listen for client connections
+   * 2) fresh thread pool
+   * 3) switches GUI context from Login to Running
    */
   private boolean startServer(int port, String username) {
-    System.out.println("Starting up server...");
+    System.out.println("Attempting to host server...");
     hostname = username;
     shutdown = false;
     threadCount = 0;
@@ -117,7 +92,8 @@ public class Server extends JFrame implements ActionListener {
       return false;
     }
     pool = Executors.newFixedThreadPool(threadLimit);
-    System.out.println("Success! Server now hosted.");
+    System.out.println("Success! Server now hosted on port " + port + ".");
+    serverHosted = true;
     setVisible(true);
     loginMenu.setVisible(false);
     return true;
@@ -139,6 +115,22 @@ public class Server extends JFrame implements ActionListener {
     shutdown = true;
   }
 
+  private void serverShutdownCleanup() {
+    try {
+      // TODO - destroy
+      pool.shutdown();
+      pool = null;
+      connectionListener = null;
+      serverSocket.close();
+      serverSocket = null;
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    serverHosted = false;
+    setVisible(false);
+    loginMenu.setVisible(true);
+  }
+
   /**
    * Takes a packet from a specified user and determines what action to take given the packet's command value.
    *
@@ -151,6 +143,8 @@ public class Server extends JFrame implements ActionListener {
       case "joinServer":
         joinServer(senderid, packet.message);
         break;
+      case "leaveServer":
+        disconnectClient(senderid);
       case "sendMessageAll":
         sendMessageAll(senderid, packet.message);
         break;
@@ -177,8 +171,26 @@ public class Server extends JFrame implements ActionListener {
     }
   }
 
+  /**
+   *
+   * @param senderid
+   * @param username
+   */
   private void joinServer(int senderid, String username) {
+    ServerThread serverThread = threadMap.get(senderid);
+    serverThread.username = username;
+    Packet packet = new Packet();
+    packet.joinServer(hostname + ": welcome to the server, " + username + "! Your user id # is " + senderid + ".");
+    serverThread.sendPacket(packet);
+  }
 
+  /**
+   *
+   * @param senderid
+   */
+  private void disconnectClient(int senderid) {
+    ServerThread serverThread = threadMap.get(senderid);
+    serverThread.shutdownThread = true;
   }
 
   private void sendMessageAll(int senderid, String messsage) {
@@ -291,6 +303,15 @@ public class Server extends JFrame implements ActionListener {
 
   /**
    *
+   * @param message
+   */
+  private void displayToUser(String message) {
+    chatDisplay.append('\n' + message);
+    chatDisplay.setCaretPosition(chatDisplay.getDocument().getLength());
+  }
+
+  /**
+   *
    */
   public void actionPerformed(ActionEvent event) {
     String userInput = textInput.getText();
@@ -300,6 +321,39 @@ public class Server extends JFrame implements ActionListener {
     System.out.println("A thing!");
   }
 
+  // HELPER OBJECTS
+
+  /**
+   * Initializes thread pool and runs infinite loop to listen for incoming connection requests.
+   * Exits the loop upon call of stopServer, which sets shutdown to true, thus exiting the loop and cleaning up.
+   */
+  private class ConnectionListener implements Runnable {
+    @Override
+    public void run() {
+      ExecutorService pool = Executors.newFixedThreadPool(threadLimit);
+      // loop for accepting client connection requests
+      while (!shutdown) {
+        try {
+          Socket clientSocket = serverSocket.accept();
+          ++threadCount;
+          System.out.println("New client connected - id # " + threadCount);
+          displayToUser("System: Client # " + threadCount + "connected to server.");
+          ServerThread serverThread = new ServerThread(clientSocket, threadCount);
+          pool.execute(serverThread);
+          threadMap.put(threadCount, serverThread);
+        } catch (Exception e) {
+          if(e instanceof SocketTimeoutException)
+            continue;
+          e.printStackTrace();
+          if (!(e instanceof SocketException)) {
+            System.exit(1);
+          }
+        }
+      }
+      // shutdown sequence once loop breaks
+      serverShutdownCleanup();
+    }
+  }
 
   /**
    *
@@ -308,26 +362,32 @@ public class Server extends JFrame implements ActionListener {
     Socket clientSocket;
     int id;
     String username;
-    ObjectInputStream in;
     ObjectOutputStream out;
+    ObjectInputStream in;
     boolean shutdownThread;
 
     ServerThread(Socket clientSocket, int id) {
+      System.out.println("Initializing user id # " + id + "...");
+      shutdownThread = false;
       this.clientSocket = clientSocket;
       this.id = id;
       try {
-        in = new ObjectInputStream(clientSocket.getInputStream());
-        out = new ObjectOutputStream(clientSocket.getOutputStream());
+        out = new ObjectOutputStream(this.clientSocket.getOutputStream());
+        in = new ObjectInputStream(this.clientSocket.getInputStream());
       } catch (Exception e) {
+        System.out.println(e.getMessage());
         e.printStackTrace();
       }
+      System.out.println("Done.");
     }
 
     @Override
     public void run() {
+      // listening loop
       while (!shutdownThread) {
         try {
           Packet packet = (Packet) in.readObject();
+          System.out.println(packet.command + " packet received from user id # " + id + ".");
           packetHandler(packet, id);
         } catch (Exception e) {
           if (e instanceof EOFException)
@@ -336,6 +396,8 @@ public class Server extends JFrame implements ActionListener {
             e.printStackTrace();
         }
       }
+      // thread shutdown sequence
+      System.out.println("Closing connection to user id # " + id + "...");
       try {
         out.close();
         in.close();
@@ -343,6 +405,7 @@ public class Server extends JFrame implements ActionListener {
       } catch (Exception e) {
         e.printStackTrace();
       }
+      System.out.println("Done.");
     }
 
     private void sendPacket(Packet packet) {
@@ -399,7 +462,7 @@ public class Server extends JFrame implements ActionListener {
         @Override
         public void windowClosing(WindowEvent event) {
           super.windowClosing(event);
-          closeServer();
+          closeServerApplication();
         }
       });
 
@@ -417,12 +480,14 @@ public class Server extends JFrame implements ActionListener {
       panel.add(new JLabel("Port Number"));
       portField = new JTextField();
       portField.setColumns(33);
+      portField.setText("666");
       panel.add(portField);
 
       // initialize username field
       panel.add(new JLabel("Username"));
       usernameField = new JTextField();
       usernameField.setColumns(33);
+      usernameField.setText("HOST");
       panel.add(usernameField);
 
       // initialize connect button

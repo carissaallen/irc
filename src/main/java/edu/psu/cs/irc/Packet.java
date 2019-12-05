@@ -19,6 +19,11 @@ class Packet implements Serializable {
     this.message = message;
   }
 
+  void leaveServer() {
+    clear();
+    command = "leaveServer";
+  }
+
   void sendMessageAll(String message) {
     clear();
     command = "sendMessageAll";
@@ -67,5 +72,10 @@ class Packet implements Serializable {
     clear();
     command = "displayToUser";
     this.message = message;
+  }
+
+  void serverShutdown() {
+    clear();
+    command = "serverShutdown";
   }
 }
