@@ -22,9 +22,12 @@ mvn clean verify
 #### Run
 
 1. Start the server: `Run 'Server.main()'`
-2. Enter a valid port number and hit start
+2. Enter a valid port number and click "Start Server"
 3. Start the client: `Run 'Client.main()'`
-4. Enter a username and hit start
+4. Enter a username and click "Connect to Server"
+5. To connect multiple clients to the server, repeat Steps 3-4. 
+
+Note: If you're running this application in IntelliJ, go to Edit Configuration, and make sure "Allow parallel run" is checked in order to connect multiple clients to the server. 
 
 ## Technology
 
