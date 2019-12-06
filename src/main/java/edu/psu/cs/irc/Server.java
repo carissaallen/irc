@@ -676,12 +676,18 @@ public class Server extends JFrame implements ActionListener {
     String roomName;
     Vector<Integer> members;
 
+    /* Constructor */
     ServerRoom(int initialMember, String roomName) {
       this.roomName = roomName;
       members = new Vector<>();
       members.add(initialMember);
     }
 
+    /**
+     * Removes the client corresponding to the given id number from a room.
+     *
+     * @param targetid
+     */
     void removeUser(int targetid) {
       members.removeIf(i -> i == targetid);
     }
