@@ -573,6 +573,7 @@ public class Server extends JFrame implements ActionListener {
    * cleaning up.
    */
   private class ConnectionListener implements Runnable {
+    /** Runs an infinite loop to listen for incoming connection requests from the client. */
     @Override
     public void run() {
       ExecutorService pool = Executors.newFixedThreadPool(threadLimit);
@@ -600,8 +601,9 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   * Server thread object stores unique identification numbers corresponding to connected users and
-   * rooms. Invoked by the ConnectionListener class to listen to incoming connection requests.
+   * Invoked by the ConnectionListener class, the Server Thread class runs an infinite loop to
+   * listen for incoming packets. Server threads store unique identification numbers corresponding
+   * to connected users and rooms.
    */
   private class ServerThread implements Runnable {
     Socket clientSocket;
@@ -611,6 +613,7 @@ public class Server extends JFrame implements ActionListener {
     ObjectInputStream in;
     boolean shutdownThread;
 
+    /* Constructor */
     ServerThread(Socket clientSocket, int id) {
       System.out.println("Initializing user id # " + id + "...");
       shutdownThread = false;
@@ -626,6 +629,7 @@ public class Server extends JFrame implements ActionListener {
       System.out.println("Done.");
     }
 
+    /** Runs an infinite loop to listen for incoming packets. */
     @Override
     public void run() {
       // listening loop
