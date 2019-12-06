@@ -729,7 +729,7 @@ public class Server extends JFrame implements ActionListener {
       panel.add(new JLabel("Port Number"));
       portField = new JTextField();
       portField.setColumns(33);
-      portField.setText("666");
+      portField.setText("8080");
       panel.add(portField);
 
       // initialize username field
