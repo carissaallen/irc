@@ -140,16 +140,15 @@ public class Client extends JFrame implements ActionListener {
       case "joinServer": // username logged by server, ready to start chatting
         startChatGUI(packet.message);
         break;
-      case "joinRoom":
-        //TODO
-      case "leaveRoom":
-        //TODO
+      case "userUpdate":
+        userDisplay.setText(packet.message);
+        break;
+      case "roomUpdate":
+        roomDisplay.setText(packet.message);
+        break;
       case "displayToUser":
-        //TODO
-      case "userListUpdate":
-        //TODO
-      case "roomListUpdate":
-        //TODO
+        displayToUser(packet.message);
+        break;
       case "error":
         //TODO
       case "close":
@@ -259,6 +258,16 @@ public class Client extends JFrame implements ActionListener {
     chatDisplay.setCaretPosition(chatDisplay.getDocument().getLength());
   }
 
+  private void parseInput(String userInput) {
+    Packet packet = new Packet();
+    if(userInput.startsWith("@")) {
+      // TODO - implement special cases
+    } else {
+      packet.sendMessageAll(userInput);
+      sendPacket(packet);
+    }
+  }
+
   /**
    *
    */
@@ -266,7 +275,7 @@ public class Client extends JFrame implements ActionListener {
     String userInput = textInput.getText();
     if(userInput.equals("")) return;
     textInput.setText("");
-    // TODO - implement action listener
+    parseInput(userInput);
   }
 
   /**

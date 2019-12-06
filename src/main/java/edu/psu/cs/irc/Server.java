@@ -235,13 +235,14 @@ public class Server extends JFrame implements ActionListener {
    * @param username
    */
   private void joinServer(int senderid, String username) {
-    displayToUser("System: Client # " + senderid + " has joined the chat as " + username + ".");
+    displayToUser("System: User # " + senderid + " has joined the chat as " + username + ".");
     ServerThread serverThread = threadMap.get(senderid);
     serverThread.username = username;
     Packet packet = new Packet();
-    packet.joinServer(hostname + ": welcome to the server, " + username + "! Your user id # is " + senderid + ".");
+    packet.joinServer("System: Welcome to the server, " + username + "! Your user id # is " + senderid + ".");
     serverThread.sendPacket(packet);
     userUpdate();
+    roomUpdate();
   }
 
   /**
@@ -251,7 +252,7 @@ public class Server extends JFrame implements ActionListener {
   private void disconnectClient(int senderid) {
     ServerThread serverThread = threadMap.get(senderid);
     threadMap.remove(senderid);
-    displayToUser("System: Client # " + senderid + " (" + serverThread.username + ") has left the chat.");
+    displayToUser("System: User # " + senderid + " (" + serverThread.username + ") has left the chat.");
     serverThread.shutdownThread = true;
     for(Map.Entry<Integer,ServerRoom> entry : roomMap.entrySet())
       entry.getValue().removeUser(senderid);
@@ -259,8 +260,17 @@ public class Server extends JFrame implements ActionListener {
     roomUpdate();
   }
 
-  private void sendMessageAll(int senderid, String messsage) {
-
+  /**
+   *
+   * @param senderid
+   * @param message
+   */
+  private void sendMessageAll(int senderid, String message) {
+    Packet packet = new Packet();
+    String output = threadMap.get(senderid).username + ": " + message;
+    displayToUser(output);
+    packet.displayToUser(output);
+    sendPacketAll(packet);
   }
 
   private void sendMessageUser(int senderid, int targetid, String message) {
@@ -375,10 +385,29 @@ public class Server extends JFrame implements ActionListener {
     chatDisplay.setCaretPosition(chatDisplay.getDocument().getLength());
   }
 
+  /**
+   *
+   */
   private void resetChatGUI() {
     chatDisplay.setText("System: Welcome to the Chat Server!");
     userDisplay.setText("0 USERS");
     roomDisplay.setText("0 ROOMS");
+  }
+
+  /**
+   *
+   * @param userInput
+   */
+  private void parseInput(String userInput) {
+    Packet packet = new Packet();
+    if(userInput.startsWith("@")) {
+      // TODO - implement special cases
+    } else {
+      String message = hostname + ": " + userInput;
+      packet.displayToUser(message);
+      sendPacketAll(packet);
+      displayToUser(message);
+    }
   }
 
   /**
@@ -388,8 +417,7 @@ public class Server extends JFrame implements ActionListener {
     String userInput = textInput.getText();
     if(userInput.equals("")) return;
     textInput.setText("");
-    // TODO - implement action listener
-    System.out.println("A thing!");
+    parseInput(userInput);
   }
 
   // HELPER OBJECTS
@@ -407,8 +435,8 @@ public class Server extends JFrame implements ActionListener {
         try {
           Socket clientSocket = serverSocket.accept();
           ++threadCount;
-          System.out.println("New client connected - id # " + threadCount);
-          displayToUser("System: Client # " + threadCount + " connected to server.");
+          System.out.println("New user connected - id # " + threadCount);
+          displayToUser("System: User # " + threadCount + " connected to server.");
           ServerThread serverThread = new ServerThread(clientSocket, threadCount);
           pool.execute(serverThread);
           threadMap.put(threadCount, serverThread);
