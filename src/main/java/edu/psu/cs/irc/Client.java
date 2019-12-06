@@ -11,9 +11,7 @@ import java.util.concurrent.*;
  *
  */
 public class Client extends JFrame implements ActionListener {
-  /**
-   * Client Data Members
-   */
+  /** Client Data Members */
   private Socket socket;
   private boolean shutdown;
   private ObjectOutputStream out;
@@ -21,9 +19,7 @@ public class Client extends JFrame implements ActionListener {
   private ExecutorService pool;
   private PacketListener packetListener;
 
-  /**
-   * GUI Data Members
-   */
+  /** GUI Data Members */
   private LoginMenu loginMenu;
   private JTextArea chatDisplay;
   private JTextField textInput;
@@ -35,6 +31,7 @@ public class Client extends JFrame implements ActionListener {
   /**
    * Constructor
    * Initializes the client object by running the GUI setup functions and
+   * setting the login menu to visible to the user.
    */
   Client() {
     super("IRC Client");
@@ -46,7 +43,7 @@ public class Client extends JFrame implements ActionListener {
   }
 
   /**
-   *
+   * Exits the application with status code 0.
    */
   private void closeClientApplication() {
     System.out.println("Closing client application...");
@@ -54,9 +51,12 @@ public class Client extends JFrame implements ActionListener {
   }
 
   /**
-   *
-   * @param ip
-   * @param port
+   * Sends out a socket connection request to ip:port. If successful, attempts to instantiate the
+   * object streams, the single thread pool (for holding the packet listener), and the packet listener.
+   * Finally it starts up the packet listener by executing it in the pool and returning true.
+   * If any exceptions occur, it returns false.
+   * @param ip a string representing the desired IP address that is being connected to
+   * @param port an integer representing the desired port number that is being connected to
    * @return a boolean representing whether successful connection to server was made
    */
   private boolean connectToServer(String ip, int port) {
@@ -79,6 +79,7 @@ public class Client extends JFrame implements ActionListener {
 
   /**
    * Sets shutdown to true, thus exiting the infinite incoming connection loop and closing the server.
+   * Also sends a final packet to the server to let it know the user is logging out of the server.
    */
   private void disconnectFromServer() {
     System.out.println("Disconnecting from server...");
@@ -89,7 +90,8 @@ public class Client extends JFrame implements ActionListener {
   }
 
   /**
-   *
+   * Closes all connections and sets the relevant members to their null values. Finally switches the visible windows
+   * from the chat window to the login window.
    */
   private void serverDisconnectCleanup() {
     // disconnect sequence
@@ -107,7 +109,6 @@ public class Client extends JFrame implements ActionListener {
     } catch (Exception e) {
       e.printStackTrace();
     }
-
     System.out.println("Success! Connections closed.");
     setVisible(false);
     loginMenu.displayFeedback("Disconnected from server.");
@@ -115,8 +116,8 @@ public class Client extends JFrame implements ActionListener {
   }
 
   /**
-   *
-   * @param packet
+   * Sends a given packet to the server.
+   * @param packet packet to be sent to the server
    */
   private void sendPacket(Packet packet) {
     try {
@@ -129,8 +130,9 @@ public class Client extends JFrame implements ActionListener {
   }
 
   /**
-   *
-   * @param packet
+   * Takes a given packet and inspects its command value to route it to the correct function with
+   * the correct data passed to it. Any unrecognized packet command types are ignored.
+   * @param packet packet to be inspected and rerouted.
    */
   private void packetHandler(Packet packet) {
     String command = packet.command;
@@ -236,7 +238,8 @@ public class Client extends JFrame implements ActionListener {
   }
 
   /**
-   *
+   * Reveals the chat GUI window with a given message, clearing out any previous messages.
+   * @param message string set as the only text in the chat window display
    */
   private void startChatGUI(String message) {
     loginMenu.setVisible(false);
@@ -247,8 +250,9 @@ public class Client extends JFrame implements ActionListener {
   }
 
   /**
-   *
-   * @param message
+   * Takes a string and posts it to the chat window display with the correct formatting. Also sets the carat
+   * position so that the window scrolls as you get new messages and shows the most recent.
+   * @param message message to be posted to the chat window display
    */
   private void displayToUser(String message) {
     chatDisplay.append("\n" + message);
@@ -256,7 +260,12 @@ public class Client extends JFrame implements ActionListener {
   }
 
   /**
-   *
+   * Takes a string and parses it to determine if it is a command. If it is determined to be a command
+   * (starting with '\@'), then it is further parsed to determine which kind and does the necessary error
+   * checking for malformed arguments. If any arguments are malformed, it outputs an error message to the
+   * user describing the malformed argument. If the input is not a command, it assumes it is a message to
+   * be sent to all users. Finally, once the input is parsed, the packet is sent to the server with the
+   * correct command argument.
    * @param userInput
    */
   private void parseInput(String userInput) {
@@ -350,7 +359,9 @@ public class Client extends JFrame implements ActionListener {
   }
 
   /**
-   *
+   * Takes an action event interaction with the chat window GUI, and grabs the text from the user input text
+   * box and hands it to the parseInput() function for interpreting and manipulation.
+   * @param event ActionEvent object created by the GUI interaction
    */
   public void actionPerformed(ActionEvent event) {
     String userInput = textInput.getText();
@@ -360,7 +371,13 @@ public class Client extends JFrame implements ActionListener {
   }
 
   /**
-   *
+   * The PacketListener is a runnable thread which will asyncronously listener for incoming packets from the server.
+   * The run function is called when the PacketListener is handed to the thread pool and executed. It loops while
+   * the shutdown member is false, attempting to read in packets from the server. On any failure to read from the
+   * server, it calls the disconnectFromServer() function to close the connection and leave the server. When it gets
+   * a packet from the server, it hands it to the packetHandler() function to be interpreted and manipulated. Once
+   * it exits the loop, it calls the serverDisconnectCleanup() function to close all the connections and return to
+   * the login GUI.
    */
   private class PacketListener implements Runnable {
     @Override
@@ -384,10 +401,10 @@ public class Client extends JFrame implements ActionListener {
   }
 
   /**
-   *
+   * The login menu is the GUI object that the user utilizes to instigate connections to the server.
    */
   private class LoginMenu extends JFrame implements ActionListener {
-    // Data Members
+    /** GUI Data Members */
     JTextArea feedback;
     JTextField ipField;
     JTextField portField;
@@ -396,7 +413,7 @@ public class Client extends JFrame implements ActionListener {
     JButton clearButton;
 
     /**
-     * Constructor
+     * Constructor - calls the GUI initialization for the login window
      */
     LoginMenu() {
       super("IRC Client");
@@ -441,7 +458,7 @@ public class Client extends JFrame implements ActionListener {
       panel.add(new JLabel("Port Number"));
       portField = new JTextField();
       portField.setColumns(33);
-      portField.setText("666");
+      portField.setText("8080");
       panel.add(portField);
 
       // initialize username field
