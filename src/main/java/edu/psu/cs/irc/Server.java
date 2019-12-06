@@ -8,10 +8,16 @@ import java.net.*;
 import java.util.*;
 import java.util.concurrent.*;
 
+/**
+ * The server class enables communication, acting as the central point of contact for all messages
+ * sent through the application. Once the server is started on a valid port, clients can connect to
+ * the server. The server will initialize a thread pool, running an infinite loop to listen for
+ * incoming connection requests from the client. When the client sends a message, the server will
+ * receive it first, and will then transmit the message to all connected users, to a particular
+ * user, or to a virtual room specified by the client.
+ */
 public class Server extends JFrame implements ActionListener {
-  /**
-   * Server Data Members
-   */
+  /* Server Data Members */
   private int threadLimit = 20;
   private ConnectionListener connectionListener;
   private ServerSocket serverSocket;
@@ -23,9 +29,7 @@ public class Server extends JFrame implements ActionListener {
   private Map<Integer, ServerThread> threadMap; // mapping of user id #s to ServerThreads
   private Map<Integer, ServerRoom> roomMap; // mapping of room id #s to ServerRooms
 
-  /**
-   * GUI Data Members
-   */
+  /* GUI Data Members */
   private LoginMenu loginMenu;
   private String hostname;
   private JTextArea chatDisplay;
@@ -34,7 +38,8 @@ public class Server extends JFrame implements ActionListener {
   private JTextArea roomDisplay;
 
   /**
-   * Constructor
+   * Constructor initializes the Graphical User Interface (GUI). Once started, closing this window
+   * will stop the server.
    */
   private Server() {
     super("IRC Server");
@@ -45,15 +50,13 @@ public class Server extends JFrame implements ActionListener {
     System.out.println("Success! Server application started.");
   }
 
-  // SERVER METHODS
-
   /**
-   * Closes the server application
+   * If a user closes the application window, this method will be called to shut down the server.
    */
   private void closeServerApplication() {
     System.out.println("Closing server application...");
     if (serverHosted) {
-      stopServer();
+      stopServer(); // Closes the infinite loop listening for incoming connection requests
       while (serverHosted) {
         try {
           Thread.sleep(1000);
@@ -69,10 +72,9 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   * Initializes server to clean state with:
-   * 1) functioning socket that can listen for client connections
-   * 2) fresh thread pool
-   * 3) switches GUI context from Login to Running
+   * Initializes the server to a clean state with the following attributes: 1) a functioning socket
+   * that can listen for incoming client connections 2) a fresh thread pool. Additionally, the GUI
+   * context will be switched from Login to Running.
    */
   private boolean startServer(int port, String username) {
     System.out.println("Attempting to host server...");
@@ -89,17 +91,18 @@ public class Server extends JFrame implements ActionListener {
       e.printStackTrace();
       return false;
     }
-    pool = Executors.newFixedThreadPool(threadLimit);
+    pool = Executors.newFixedThreadPool(threadLimit); // Fresh thread pool
     System.out.println("Success! Server now hosted on port " + port + ".");
     serverHosted = true;
-    resetChatGUI();
-    setVisible(true);
-    loginMenu.setVisible(false);
+    resetChatGUI(); // Reset number of users and rooms to zero
+    setVisible(true); // Show chat window
+    loginMenu.setVisible(false); // Hide login window
     return true;
   }
 
   /**
-   *
+   * Once the server is started, a connection listener is executed to listen to incoming connection
+   * requests from the client.
    */
   private void runConnectionListener() {
     connectionListener = new ConnectionListener();
@@ -107,7 +110,8 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   * Sets shutdown to true, thus exiting the infinite incoming connection loop and stopping the server.
+   * Sets shutdown to true, thus exiting the infinite incoming connection loop and stopping the
+   * server.
    */
   private void stopServer() {
     System.out.println("Stopping server...");
@@ -118,7 +122,8 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   *
+   * Once the server is shut down, all fields are GUI properties are reset to their original state,
+   * or null values.
    */
   private void serverShutdownCleanup() {
     try {
@@ -139,10 +144,11 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   * Takes a packet from a specified user and determines what action to take given the packet's command value.
+   * Takes a packet from a specified client and determines what action to take given the packet's
+   * command value.
    *
-   * @param packet   - packet containing data from the user
-   * @param senderid - id # of the user that sent the packet
+   * @param packet packet containing data from the client
+   * @param senderid id number corresponding to the client that sent the packet
    */
   private void packetHandler(Packet packet, int senderid) {
     String command = packet.command;
@@ -171,12 +177,13 @@ public class Server extends JFrame implements ActionListener {
         leaveRoom(senderid, packet.targetid);
         break;
       default:
-        //TODO - error handling
+        // TODO - error handling
     }
   }
 
   /**
-   *
+   * When a client connects to the server, or disconnects from the server, the user list is updated
+   * to reflect this change.
    */
   private void userUpdate() {
     StringBuilder sb = new StringBuilder();
@@ -190,7 +197,8 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   *
+   * When a room is created, or is removed (this occurs when all users have disconnected from a
+   * particular room), the room list is updated to reflect this change.
    */
   private void roomUpdate() {
     StringBuilder sb = new StringBuilder();
@@ -211,7 +219,10 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   * @param packet
+   * Sends the packet containing data from the client to every connected user. The threadMap
+   * contains every user id, which corresponds to the server thread count.
+   *
+   * @param packet packet containing data from the client
    */
   private void sendPacketAll(Packet packet) {
     for (Map.Entry<Integer, ServerThread> entry : threadMap.entrySet())
@@ -219,27 +230,39 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   * @param senderid
-   * @param username
+   * Once a new client has connected to the server, the user id and username is stored, status
+   * messages are displayed to the user, and the user list and room list is updated to account for
+   * the new client.
+   *
+   * @param senderid the unique identification number corresponding to the client that performed the
+   *     action
+   * @param username the username entered by the client upon connecting to the server
    */
   private void joinServer(int senderid, String username) {
     displayToUser("System: User # " + senderid + " has joined the chat as " + username + ".");
     ServerThread serverThread = threadMap.get(senderid);
     serverThread.username = username;
     Packet packet = new Packet();
-    packet.joinServer("System: Welcome to the server, " + username + "! Your user id # is " + senderid + ".");
+    packet.joinServer(
+        "System: Welcome to the server, " + username + "! Your user id # is " + senderid + ".");
     serverThread.sendPacket(packet);
     userUpdate();
     roomUpdate();
   }
 
   /**
-   * @param senderid
+   * Once a client disconnects from the server, the user id and username is removed, status messages
+   * are displayed to the user, and the user list and room list is updated to account for the
+   * change.
+   *
+   * @param senderid the unique identification number corresponding to the client that performed the
+   *     action
    */
   private void disconnectClient(int senderid) {
     ServerThread serverThread = threadMap.get(senderid);
     threadMap.remove(senderid);
-    displayToUser("System: User # " + senderid + " (" + serverThread.username + ") has left the chat.");
+    displayToUser(
+        "System: User # " + senderid + " (" + serverThread.username + ") has left the chat.");
     serverThread.shutdownThread = true;
     for (Map.Entry<Integer, ServerRoom> entry : roomMap.entrySet())
       entry.getValue().removeUser(senderid);
@@ -248,8 +271,12 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   * @param senderid
-   * @param message
+   * Broadcasts a message to all connected users. This is the default behavior when text is entered
+   * without a command.
+   *
+   * @param senderid the unique identification number corresponding to the client that performed the
+   *     action
+   * @param message the text the client entered to send to all connected users
    */
   private void sendMessageAll(int senderid, String message) {
     Packet packet = new Packet();
@@ -260,9 +287,13 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   * @param senderid
-   * @param targetid
-   * @param message
+   * Sends a message from the client (senderid) to another user (targetid).
+   *
+   * @param senderid the unique identification number corresponding to the client that performed the
+   *     action
+   * @param targetid the unique identification number corresponding to the target client (recipient
+   *     of the client's intended action)
+   * @param message the text the client entered to send to a specific user
    */
   private void sendMessageUser(int senderid, int targetid, String message) {
     ServerThread serverThread = threadMap.get(targetid);
@@ -279,9 +310,13 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   * @param senderid
-   * @param targetid
-   * @param message
+   * Sends a message from the client (senderid) to all connected users in a particular room
+   * (targetid).
+   *
+   * @param senderid the unique identification number corresponding to the client that performed the
+   *     action
+   * @param targetid the unique identification number corresponding to a particular room
+   * @param message the text the client entered to send to users connected to a particular room
    */
   private void sendMessageRoom(int senderid, int targetid, String message) {
     ServerRoom serverRoom = roomMap.get(targetid);
@@ -301,13 +336,16 @@ public class Server extends JFrame implements ActionListener {
     displayToUser(output);
     Packet packet = new Packet();
     packet.displayToUser(output);
-    for (Integer i : serverRoom.members)
-      threadMap.get(i).sendPacket(packet);
+    for (Integer i : serverRoom.members) threadMap.get(i).sendPacket(packet);
   }
 
   /**
-   * @param senderid
-   * @param roomName
+   * Creates a new virtual room, with the room name specified by the client. Once the room is
+   * created, the client automatically joins the room. The room list is updated accordingly.
+   *
+   * @param senderid the unique identification number corresponding to the client that performed the
+   *     action
+   * @param roomName the room name the client entered
    */
   private void createRoom(int senderid, String roomName) {
     ServerRoom serverRoom = new ServerRoom(senderid, roomName);
@@ -315,13 +353,23 @@ public class Server extends JFrame implements ActionListener {
     roomMap.put(roomCount, serverRoom);
     roomUpdate();
     Packet packet = new Packet();
-    packet.displayToUser("System: Room '" + roomName + "' has been created under id # " + roomCount + " with you in it.");
+    packet.displayToUser(
+        "System: Room '"
+            + roomName
+            + "' has been created under id # "
+            + roomCount
+            + " with you in it.");
     threadMap.get(senderid).sendPacket(packet);
   }
 
   /**
-   * @param senderid
-   * @param targetid
+   * A client (senderid) may join a specific room (targetid), which will allow them to send and
+   * receive messages to/from users connected to that room. The room list is updated to reflect the
+   * new user who joined.
+   *
+   * @param senderid the unique identification number corresponding to the client that performed the
+   *     action
+   * @param targetid the unique identification number corresponding to a particular room
    */
   private void joinRoom(int senderid, int targetid) {
     ServerRoom serverRoom = roomMap.get(targetid);
@@ -330,19 +378,31 @@ public class Server extends JFrame implements ActionListener {
       return;
     }
     if (serverRoom.members.contains(senderid)) {
-      sendError(senderid, "System: You are already a member of room '" + serverRoom.roomName + "' (id # " + targetid + ").");
+      sendError(
+          senderid,
+          "System: You are already a member of room '"
+              + serverRoom.roomName
+              + "' (id # "
+              + targetid
+              + ").");
       return;
     }
     serverRoom.members.add(senderid);
     roomUpdate();
     Packet packet = new Packet();
-    packet.displayToUser("System: You have joined room '" + serverRoom.roomName + "' with id # " + roomCount + ".");
+    packet.displayToUser(
+        "System: You have joined room '" + serverRoom.roomName + "' with id # " + roomCount + ".");
     threadMap.get(senderid).sendPacket(packet);
   }
 
   /**
-   * @param senderid
-   * @param targetid
+   * A client (senderid) may leave a specific room (targetid), which will disable them from sending
+   * and receiving messages to/from users connected to that room. The room list is updated to remove
+   * the user who left. Once all users have disconnected from a room, the room is destroyed.
+   *
+   * @param senderid the unique identification number corresponding to the client that performed the
+   *     action
+   * @param targetid the unique identification number corresponding to a particular room
    */
   private void leaveRoom(int senderid, int targetid) {
     ServerRoom serverRoom = roomMap.get(targetid);
@@ -351,25 +411,37 @@ public class Server extends JFrame implements ActionListener {
       return;
     }
     if (!serverRoom.members.contains(senderid)) {
-      sendError(senderid, "System: You are not a member of room '" + serverRoom.roomName + "' (id # " + targetid + ").");
+      sendError(
+          senderid,
+          "System: You are not a member of room '"
+              + serverRoom.roomName
+              + "' (id # "
+              + targetid
+              + ").");
       return;
     }
     String roomName = serverRoom.roomName;
     serverRoom.removeUser(senderid);
     roomUpdate();
     Packet packet = new Packet();
-    packet.displayToUser("System: You have left room '" + roomName + "' with id # " + targetid + ".");
+    packet.displayToUser(
+        "System: You have left room '" + roomName + "' with id # " + targetid + ".");
     threadMap.get(senderid).sendPacket(packet);
   }
 
   /**
-   * @param targetid
-   * @param message
+   * Graceful error handling, particularly useful in the event that a target user is not found.
+   *
+   * @param targetid the unique identification number corresponding to the target client
+   * @param message the text to display to the client
    */
   private void sendError(int targetid, String message) {
     ServerThread serverThread = threadMap.get(targetid);
     if (serverThread == null) {
-      System.out.println("Attempted to send error packet to id # " + targetid + ", but was not found in threadMap.");
+      System.out.println(
+          "Attempted to send error packet to id # "
+              + targetid
+              + ", but was not found in threadMap.");
       return;
     }
     Packet packet = new Packet();
@@ -377,23 +449,20 @@ public class Server extends JFrame implements ActionListener {
     serverThread.sendPacket(packet);
   }
 
-  // GUI METHODS
-
-  /**
-   * Initializes the GUI for the server
-   */
+  /** Initializes the GUI for the server. */
   private void serverGUISetup() {
     setSize(900, 500);
     setResizable(false);
     // call stopServer function on close
     setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-    addWindowListener(new WindowAdapter() {
-      @Override
-      public void windowClosing(WindowEvent event) {
-        super.windowClosing(event);
-        stopServer();
-      }
-    });
+    addWindowListener(
+        new WindowAdapter() {
+          @Override
+          public void windowClosing(WindowEvent event) {
+            super.windowClosing(event);
+            stopServer();
+          }
+        });
 
     // panel holding all individual displays in grid bag layout
     JPanel panel = new JPanel();
@@ -457,16 +526,16 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   * @param message
+   * Displays message to user in GUI.
+   *
+   * @param message the text to display
    */
   private void displayToUser(String message) {
     chatDisplay.append('\n' + message);
     chatDisplay.setCaretPosition(chatDisplay.getDocument().getLength());
   }
 
-  /**
-   *
-   */
+  /** Resets all values that appear in the GUI. */
   private void resetChatGUI() {
     chatDisplay.setText("System: Welcome to the Chat Server!");
     userDisplay.setText("0 USERS");
@@ -474,7 +543,9 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   * @param userInput
+   * Parses input received from the client.
+   *
+   * @param userInput textual input from the user
    */
   private void parseInput(String userInput) {
     Packet packet = new Packet();
@@ -488,9 +559,7 @@ public class Server extends JFrame implements ActionListener {
     }
   }
 
-  /**
-   *
-   */
+  /** Returns if user input is blank; else, parses the user's textual input. */
   public void actionPerformed(ActionEvent event) {
     String userInput = textInput.getText();
     if (userInput.equals("")) return;
@@ -498,11 +567,10 @@ public class Server extends JFrame implements ActionListener {
     parseInput(userInput);
   }
 
-  // HELPER OBJECTS
-
   /**
    * Initializes thread pool and runs infinite loop to listen for incoming connection requests.
-   * Exits the loop upon call of stopServer, which sets shutdown to true, thus exiting the loop and cleaning up.
+   * Exits the loop upon call of stopServer, which sets shutdown to true, thus exiting the loop and
+   * cleaning up.
    */
   private class ConnectionListener implements Runnable {
     @Override
@@ -519,8 +587,7 @@ public class Server extends JFrame implements ActionListener {
           pool.execute(serverThread);
           threadMap.put(threadCount, serverThread);
         } catch (Exception e) {
-          if (e instanceof SocketTimeoutException)
-            continue;
+          if (e instanceof SocketTimeoutException) continue;
           e.printStackTrace();
           if (!(e instanceof SocketException)) {
             System.exit(1);
@@ -533,7 +600,8 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   *
+   * Server thread object stores unique identification numbers corresponding to connected users and
+   * rooms. Invoked by the ConnectionListener class to listen to incoming connection requests.
    */
   private class ServerThread implements Runnable {
     Socket clientSocket;
@@ -567,10 +635,8 @@ public class Server extends JFrame implements ActionListener {
           System.out.println(packet.command + " packet received from user id # " + id + ".");
           packetHandler(packet, id);
         } catch (Exception e) {
-          if (e instanceof EOFException)
-            shutdownThread = true;
-          else
-            e.printStackTrace();
+          if (e instanceof EOFException) shutdownThread = true;
+          else e.printStackTrace();
         }
       }
       // thread shutdown sequence
@@ -585,6 +651,11 @@ public class Server extends JFrame implements ActionListener {
       System.out.println("Done.");
     }
 
+    /**
+     * Writes data contained in packet to an output stream.
+     *
+     * @param packet packet containing data from the client
+     */
     private void sendPacket(Packet packet) {
       try {
         out.writeObject(packet);
@@ -594,13 +665,10 @@ public class Server extends JFrame implements ActionListener {
       }
       System.out.println(packet.command + " packet sent to user id # " + id + ".");
     }
-
   }
 
-  /**
-   * Object holding user id #s of users that are members of a given room
-   */
-  static private class ServerRoom {
+  /** Object holding user identification numbers for users that are members of a given room. */
+  private static class ServerRoom {
     String roomName;
     Vector<Integer> members;
 
@@ -615,9 +683,7 @@ public class Server extends JFrame implements ActionListener {
     }
   }
 
-  /**
-   *
-   */
+  /** Graphical User Interface (GUI) */
   private class LoginMenu extends JFrame implements ActionListener {
     // Data Members
     JTextArea feedback;
@@ -626,28 +692,25 @@ public class Server extends JFrame implements ActionListener {
     JButton startButton;
     JButton clearButton;
 
-    /**
-     * Constructor
-     */
+    /* Constructor */
     LoginMenu() {
       super("IRC Server");
       loginGUISetup();
     }
 
-    /**
-     * initializes the GUI for the login menu
-     */
+    /** Initializes the GUI for the login menu */
     private void loginGUISetup() {
       setSize(550, 250);
       setResizable(false);
       setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
-      addWindowListener(new WindowAdapter() {
-        @Override
-        public void windowClosing(WindowEvent event) {
-          super.windowClosing(event);
-          closeServerApplication();
-        }
-      });
+      addWindowListener(
+          new WindowAdapter() {
+            @Override
+            public void windowClosing(WindowEvent event) {
+              super.windowClosing(event);
+              closeServerApplication();
+            }
+          });
 
       JPanel panel = new JPanel();
       add(panel);
@@ -688,11 +751,10 @@ public class Server extends JFrame implements ActionListener {
       feedback.setText("Welcome to the IRC Server!");
     }
 
-
     /**
-     * appends feedback to the feedback display in the login menu
+     * Appends feedback to the feedback display in the login menu.
      *
-     * @param message - String of feedback to be appended to display
+     * @param message String of feedback to be appended to display
      */
     private void displayFeedback(String message) {
       feedback.append("\n" + message);
@@ -700,9 +762,9 @@ public class Server extends JFrame implements ActionListener {
     }
 
     /**
-     * on an action event occuring in the login menu, this function is called
+     * On an action event occurring in the login menu, this function is called.
      *
-     * @param event - ActionEvent object representing an event that has occurred in the login menu
+     * @param event ActionEvent object representing an event that has occurred in the login menu
      */
     public void actionPerformed(ActionEvent event) {
       // start server button pressed
@@ -736,6 +798,11 @@ public class Server extends JFrame implements ActionListener {
     }
   }
 
+  /**
+   * Main entry point to the program. Starts the application.
+   *
+   * @param args
+   */
   public static void main(String[] args) {
     Server server = new Server();
   }
