@@ -7,18 +7,37 @@ This communication system employs a central server which _relays_ messages to ot
 
 Users can also send private messages directly to other users. 
 
-## Prerequisites
-
 ## Install & Run
+
+Clone the repository: 
+```
+git@github.com:carissaallen/irc.git
+```
+
+Build the application:
 ```
 mvn clean verify
 ```
 
+#### Run
+
+1. Start the server: `Run 'Server.main()'`
+2. Enter a valid port number and hit start
+3. Start the client: `Run 'Client.main()'`
+4. Enter a username and hit start
+
 ## Technology
+
+* JDK 11
+* Maven
 
 ## Testing
 
+Testing was not implemented for this iteration. 
+
 ## Credits
+
+The RFC document was based on [this](https://github.com/carissaallen/irc/blob/master/docs/Sample_RFC.pdf) example provided by the instructor.
 
 ## Built By
 
