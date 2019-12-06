@@ -24,6 +24,17 @@ class Packet implements Serializable {
     command = "leaveServer";
   }
 
+  void userUpdate(String message) {
+    clear();
+    command = "userUpdate";
+    this.message = message;
+  }
+
+  void roomUpdate(String message) {
+    clear();
+    command = "roomUpdate";
+    this.message = message;
+  }
   void sendMessageAll(String message) {
     clear();
     command = "sendMessageAll";

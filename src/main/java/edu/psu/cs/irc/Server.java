@@ -94,6 +94,7 @@ public class Server extends JFrame implements ActionListener {
     pool = Executors.newFixedThreadPool(threadLimit);
     System.out.println("Success! Server now hosted on port " + port + ".");
     serverHosted = true;
+    resetChatGUI();
     setVisible(true);
     loginMenu.setVisible(false);
     return true;
@@ -115,9 +116,13 @@ public class Server extends JFrame implements ActionListener {
     shutdown = true;
   }
 
+  /**
+   *
+   */
   private void serverShutdownCleanup() {
     try {
-      // TODO - destroy
+      threadMap = null;
+      roomMap = null;
       pool.shutdown();
       pool = null;
       connectionListener = null;
@@ -127,6 +132,7 @@ public class Server extends JFrame implements ActionListener {
       e.printStackTrace();
     }
     serverHosted = false;
+    loginMenu.resetLoginGUI();
     setVisible(false);
     loginMenu.setVisible(true);
   }
@@ -173,15 +179,63 @@ public class Server extends JFrame implements ActionListener {
 
   /**
    *
+   */
+  private void userUpdate() {
+    StringBuilder sb = new StringBuilder();
+    sb.append(threadMap.size()).append(" USERS\n");
+    for(Map.Entry<Integer,ServerThread> entry : threadMap.entrySet())
+      sb.append("\n# ").append(entry.getKey()).append(" ").append(entry.getValue().username);
+    userDisplay.setText(sb.toString());
+    Packet packet = new Packet();
+    packet.userUpdate(sb.toString());
+    sendPacketAll(packet);
+  }
+
+  /**
+   *
+   */
+  private void roomUpdate() {
+    StringBuilder sb = new StringBuilder();
+    sb.append(roomMap.size()).append(" ROOMS\n");
+    for(Map.Entry<Integer,ServerRoom> entry : roomMap.entrySet()) {
+      sb.append("\n# ").append(entry.getKey()).append(" ").append(entry.getValue().roomName);
+      for(Integer i : entry.getValue().members)
+        sb.append("\n\t# ").append(i).append(" ").append(threadMap.get(i).username);
+    }
+    roomDisplay.setText(sb.toString());
+    Packet packet = new Packet();
+    packet.roomUpdate(sb.toString());
+    sendPacketAll(packet);
+  }
+
+  /**
+   *
+   * @param packet
+   */
+  private void sendPacketAll(Packet packet) {
+    for(Map.Entry<Integer,ServerThread> entry : threadMap.entrySet()) {
+      entry.getValue().sendPacket(packet);
+    }
+  }
+
+  private void sendPacketRoom(int targetid, Packet packet) {
+    ServerRoom serverRoom = roomMap.get(targetid);
+    for(Integer i : serverRoom.members)
+      threadMap.get(i).sendPacket(packet);
+  }
+
+  /**
+   *
    * @param senderid
    * @param username
    */
   private void joinServer(int senderid, String username) {
+    displayToUser("System: Client # " + senderid + " has joined the chat as " + username + ".");
     ServerThread serverThread = threadMap.get(senderid);
     serverThread.username = username;
     Packet packet = new Packet();
     packet.joinServer(hostname + ": welcome to the server, " + username + "! Your user id # is " + senderid + ".");
-    serverThread.sendPacket(packet);
+    userUpdate();
   }
 
   /**
@@ -190,7 +244,11 @@ public class Server extends JFrame implements ActionListener {
    */
   private void disconnectClient(int senderid) {
     ServerThread serverThread = threadMap.get(senderid);
+    threadMap.remove(senderid);
+    displayToUser("System: Client # " + senderid + " (" + serverThread.username + ") has left the chat.");
     serverThread.shutdownThread = true;
+    userUpdate();
+    roomUpdate();
   }
 
   private void sendMessageAll(int senderid, String messsage) {
@@ -272,7 +330,6 @@ public class Server extends JFrame implements ActionListener {
 
     // initialize chat dialogue display
     chatDisplay = new JTextArea(25, 40);
-    chatDisplay.setText("System: Welcome to the Chat Server!");
     chatDisplay.setLineWrap(true);
     chatDisplay.setEditable(false);
     JScrollPane chatDisplayScroll = new JScrollPane(chatDisplay);
@@ -310,6 +367,12 @@ public class Server extends JFrame implements ActionListener {
     chatDisplay.setCaretPosition(chatDisplay.getDocument().getLength());
   }
 
+  private void resetChatGUI() {
+    chatDisplay.setText("System: Welcome to the Chat Server!");
+    userDisplay.setText("0 USERS");
+    roomDisplay.setText("0 ROOMS");
+  }
+
   /**
    *
    */
@@ -337,7 +400,7 @@ public class Server extends JFrame implements ActionListener {
           Socket clientSocket = serverSocket.accept();
           ++threadCount;
           System.out.println("New client connected - id # " + threadCount);
-          displayToUser("System: Client # " + threadCount + "connected to server.");
+          displayToUser("System: Client # " + threadCount + " connected to server.");
           ServerThread serverThread = new ServerThread(clientSocket, threadCount);
           pool.execute(serverThread);
           threadMap.put(threadCount, serverThread);
@@ -358,7 +421,7 @@ public class Server extends JFrame implements ActionListener {
   /**
    *
    */
-  class ServerThread implements Runnable {
+  private class ServerThread implements Runnable {
     Socket clientSocket;
     int id;
     String username;
@@ -421,7 +484,7 @@ public class Server extends JFrame implements ActionListener {
   /**
    * Object holding user id #s of users that are members of a given room
    */
-  class ServerRoom {
+  private class ServerRoom {
     String roomName;
     Vector<Integer> members;
 
@@ -429,6 +492,10 @@ public class Server extends JFrame implements ActionListener {
       this.roomName = roomName;
       members = new Vector<>();
       members.add(initialMember);
+    }
+
+    void removeUser(int userid) {
+      members.removeIf(i -> i == userid);
     }
   }
 
@@ -471,7 +538,6 @@ public class Server extends JFrame implements ActionListener {
 
       // initialize feedback display
       feedback = new JTextArea(5,40);
-      feedback.setText("Welcome to the IRC Server!");
       feedback.setLineWrap(true);
       feedback.setEditable(false);
       panel.add(new JScrollPane(feedback));
@@ -499,7 +565,13 @@ public class Server extends JFrame implements ActionListener {
       clearButton = new JButton("Clear");
       clearButton.addActionListener(this);
       panel.add(clearButton);
+      resetLoginGUI();
     }
+
+    void resetLoginGUI() {
+      feedback.setText("Welcome to the IRC Server!");
+    }
+
 
     /**
      * appends feedback to the feedback display in the login menu
@@ -537,6 +609,11 @@ public class Server extends JFrame implements ActionListener {
         }
         displayFeedback("Success! Server hosted on port " + portString + ".");
         runConnectionListener();
+      }
+      // clear button pressed
+      if (event.getSource() == clearButton) {
+        portField.setText("");
+        usernameField.setText("");
       }
     }
   }
