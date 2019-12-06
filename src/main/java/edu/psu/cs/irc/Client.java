@@ -127,6 +127,7 @@ public class Client extends JFrame implements ActionListener {
     } catch (Exception e) {
       e.printStackTrace();
     }
+    System.out.println(packet.command + " packet sent to server.");
   }
 
   /**
@@ -279,7 +280,7 @@ public class Client extends JFrame implements ActionListener {
       while (!shutdown) {
         try {
           Packet packet = (Packet) in.readObject();
-          System.out.println("Packet received from server.");
+          System.out.println(packet.command + " packet received from server.");
           packetHandler(packet);
         } catch (Exception e) {
           if (e instanceof EOFException)

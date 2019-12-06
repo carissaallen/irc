@@ -218,6 +218,11 @@ public class Server extends JFrame implements ActionListener {
     }
   }
 
+  /**
+   *
+   * @param targetid
+   * @param packet
+   */
   private void sendPacketRoom(int targetid, Packet packet) {
     ServerRoom serverRoom = roomMap.get(targetid);
     for(Integer i : serverRoom.members)
@@ -235,6 +240,7 @@ public class Server extends JFrame implements ActionListener {
     serverThread.username = username;
     Packet packet = new Packet();
     packet.joinServer(hostname + ": welcome to the server, " + username + "! Your user id # is " + senderid + ".");
+    serverThread.sendPacket(packet);
     userUpdate();
   }
 
@@ -247,6 +253,8 @@ public class Server extends JFrame implements ActionListener {
     threadMap.remove(senderid);
     displayToUser("System: Client # " + senderid + " (" + serverThread.username + ") has left the chat.");
     serverThread.shutdownThread = true;
+    for(Map.Entry<Integer,ServerRoom> entry : roomMap.entrySet())
+      entry.getValue().removeUser(senderid);
     userUpdate();
     roomUpdate();
   }
@@ -478,7 +486,9 @@ public class Server extends JFrame implements ActionListener {
       } catch (Exception e) {
         e.printStackTrace();
       }
+      System.out.println(packet.command + " packet sent to user id # " + id + ".");
     }
+
   }
 
   /**
