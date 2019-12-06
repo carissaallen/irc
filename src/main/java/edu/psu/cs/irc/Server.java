@@ -32,8 +32,6 @@ public class Server extends JFrame implements ActionListener {
   private JTextField textInput;
   private JTextArea userDisplay;
   private JTextArea roomDisplay;
-  private String onlineUserList;
-  private String activeRoomList;
 
   /**
    * Constructor
@@ -54,9 +52,9 @@ public class Server extends JFrame implements ActionListener {
    */
   private void closeServerApplication() {
     System.out.println("Closing server application...");
-    if(serverHosted) {
+    if (serverHosted) {
       stopServer();
-      while(serverHosted) {
+      while (serverHosted) {
         try {
           Thread.sleep(1000);
           System.out.print(".");
@@ -113,6 +111,9 @@ public class Server extends JFrame implements ActionListener {
    */
   private void stopServer() {
     System.out.println("Stopping server...");
+    Packet packet = new Packet();
+    packet.shutdown();
+    sendPacketAll(packet);
     shutdown = true;
   }
 
@@ -169,9 +170,6 @@ public class Server extends JFrame implements ActionListener {
       case "leaveRoom":
         leaveRoom(senderid, packet.targetid);
         break;
-      case "displayRoom":
-        displayRoom(senderid, packet.targetid);
-        break;
       default:
         //TODO - error handling
     }
@@ -183,7 +181,7 @@ public class Server extends JFrame implements ActionListener {
   private void userUpdate() {
     StringBuilder sb = new StringBuilder();
     sb.append(threadMap.size()).append(" USERS\n");
-    for(Map.Entry<Integer,ServerThread> entry : threadMap.entrySet())
+    for (Map.Entry<Integer, ServerThread> entry : threadMap.entrySet())
       sb.append("\n# ").append(entry.getKey()).append(" ").append(entry.getValue().username);
     userDisplay.setText(sb.toString());
     Packet packet = new Packet();
@@ -196,41 +194,31 @@ public class Server extends JFrame implements ActionListener {
    */
   private void roomUpdate() {
     StringBuilder sb = new StringBuilder();
-    sb.append(roomMap.size()).append(" ROOMS\n");
-    for(Map.Entry<Integer,ServerRoom> entry : roomMap.entrySet()) {
+    sb.append(" ROOMS\n");
+    for (Map.Entry<Integer, ServerRoom> entry : roomMap.entrySet()) {
+      if (entry.getValue().members.isEmpty()) {
+        roomMap.remove(entry.getKey());
+        continue;
+      }
       sb.append("\n# ").append(entry.getKey()).append(" ").append(entry.getValue().roomName);
-      for(Integer i : entry.getValue().members)
-        sb.append("\n\t# ").append(i).append(" ").append(threadMap.get(i).username);
+      for (Integer i : entry.getValue().members)
+        sb.append("\n   # ").append(i).append(" ").append(threadMap.get(i).username);
     }
     roomDisplay.setText(sb.toString());
     Packet packet = new Packet();
-    packet.roomUpdate(sb.toString());
+    packet.roomUpdate(roomMap.size() + sb.toString());
     sendPacketAll(packet);
   }
 
   /**
-   *
    * @param packet
    */
   private void sendPacketAll(Packet packet) {
-    for(Map.Entry<Integer,ServerThread> entry : threadMap.entrySet()) {
+    for (Map.Entry<Integer, ServerThread> entry : threadMap.entrySet())
       entry.getValue().sendPacket(packet);
-    }
   }
 
   /**
-   *
-   * @param targetid
-   * @param packet
-   */
-  private void sendPacketRoom(int targetid, Packet packet) {
-    ServerRoom serverRoom = roomMap.get(targetid);
-    for(Integer i : serverRoom.members)
-      threadMap.get(i).sendPacket(packet);
-  }
-
-  /**
-   *
    * @param senderid
    * @param username
    */
@@ -246,7 +234,6 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   *
    * @param senderid
    */
   private void disconnectClient(int senderid) {
@@ -254,47 +241,140 @@ public class Server extends JFrame implements ActionListener {
     threadMap.remove(senderid);
     displayToUser("System: User # " + senderid + " (" + serverThread.username + ") has left the chat.");
     serverThread.shutdownThread = true;
-    for(Map.Entry<Integer,ServerRoom> entry : roomMap.entrySet())
+    for (Map.Entry<Integer, ServerRoom> entry : roomMap.entrySet())
       entry.getValue().removeUser(senderid);
     userUpdate();
     roomUpdate();
   }
 
   /**
-   *
    * @param senderid
    * @param message
    */
   private void sendMessageAll(int senderid, String message) {
     Packet packet = new Packet();
-    String output = threadMap.get(senderid).username + ": " + message;
+    String output = threadMap.get(senderid).username + " (# " + senderid + "): " + message;
     displayToUser(output);
     packet.displayToUser(output);
     sendPacketAll(packet);
   }
 
+  /**
+   * @param senderid
+   * @param targetid
+   * @param message
+   */
   private void sendMessageUser(int senderid, int targetid, String message) {
-
+    ServerThread serverThread = threadMap.get(targetid);
+    if (serverThread == null) {
+      sendError(senderid, "System: User id # " + targetid + " not found.");
+      return;
+    }
+    String output = threadMap.get(senderid).username + " (# " + senderid + "): " + message;
+    displayToUser(output);
+    Packet packet = new Packet();
+    packet.displayToUser(output);
+    serverThread.sendPacket(packet);
+    threadMap.get(senderid).sendPacket(packet);
   }
 
+  /**
+   * @param senderid
+   * @param targetid
+   * @param message
+   */
   private void sendMessageRoom(int senderid, int targetid, String message) {
-
+    ServerRoom serverRoom = roomMap.get(targetid);
+    if (serverRoom == null) {
+      sendError(senderid, "System: Room id # " + targetid + " not found.");
+      return;
+    }
+    if (!serverRoom.members.contains(senderid)) {
+      StringBuilder sb = new StringBuilder();
+      sb.append("System: You are not a member of room '").append(serverRoom.roomName);
+      sb.append("' (id # ").append(targetid).append("). ");
+      sb.append(" You cannot send a message to a room you aren't in.");
+      sendError(senderid, sb.toString());
+      return;
+    }
+    String output = threadMap.get(senderid).username + " (# " + senderid + "): : " + message;
+    displayToUser(output);
+    Packet packet = new Packet();
+    packet.displayToUser(output);
+    for (Integer i : serverRoom.members)
+      threadMap.get(i).sendPacket(packet);
   }
 
+  /**
+   * @param senderid
+   * @param roomName
+   */
   private void createRoom(int senderid, String roomName) {
-
+    ServerRoom serverRoom = new ServerRoom(senderid, roomName);
+    ++roomCount;
+    roomMap.put(roomCount, serverRoom);
+    roomUpdate();
+    Packet packet = new Packet();
+    packet.displayToUser("System: Room '" + roomName + "' has been created under id # " + roomCount + " with you in it.");
+    threadMap.get(senderid).sendPacket(packet);
   }
 
+  /**
+   * @param senderid
+   * @param targetid
+   */
   private void joinRoom(int senderid, int targetid) {
-
+    ServerRoom serverRoom = roomMap.get(targetid);
+    if (serverRoom == null) {
+      sendError(senderid, "System: Room id # " + targetid + " not found.");
+      return;
+    }
+    if (serverRoom.members.contains(senderid)) {
+      sendError(senderid, "System: You are already a member of room '" + serverRoom.roomName + "' (id # " + targetid + ").");
+      return;
+    }
+    serverRoom.members.add(senderid);
+    roomUpdate();
+    Packet packet = new Packet();
+    packet.displayToUser("System: You have joined room '" + serverRoom.roomName + "' with id # " + roomCount + ".");
+    threadMap.get(senderid).sendPacket(packet);
   }
 
+  /**
+   * @param senderid
+   * @param targetid
+   */
   private void leaveRoom(int senderid, int targetid) {
-
+    ServerRoom serverRoom = roomMap.get(targetid);
+    if (serverRoom == null) {
+      sendError(senderid, "System: Room id # " + targetid + " not found.");
+      return;
+    }
+    if (!serverRoom.members.contains(senderid)) {
+      sendError(senderid, "System: You are not a member of room '" + serverRoom.roomName + "' (id # " + targetid + ").");
+      return;
+    }
+    String roomName = serverRoom.roomName;
+    serverRoom.removeUser(senderid);
+    roomUpdate();
+    Packet packet = new Packet();
+    packet.displayToUser("System: You have left room '" + roomName + "' with id # " + targetid + ".");
+    threadMap.get(senderid).sendPacket(packet);
   }
 
-  private void displayRoom(int senderid, int targetid) {
-
+  /**
+   * @param targetid
+   * @param message
+   */
+  private void sendError(int targetid, String message) {
+    ServerThread serverThread = threadMap.get(targetid);
+    if (serverThread == null) {
+      System.out.println("Attempted to send error packet to id # " + targetid + ", but was not found in threadMap.");
+      return;
+    }
+    Packet packet = new Packet();
+    packet.displayToUser(message);
+    serverThread.sendPacket(packet);
   }
 
   // GUI METHODS
@@ -336,7 +416,7 @@ public class Server extends JFrame implements ActionListener {
     panel.add(userDisplayScroll, gbc);
 
     // initializes active room list display
-    roomDisplay = new JTextArea(25,15);
+    roomDisplay = new JTextArea(25, 15);
     roomDisplay.setLineWrap(false);
     roomDisplay.setEditable(false);
     JScrollPane roomDisplayScroll = new JScrollPane(roomDisplay);
@@ -377,7 +457,6 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   *
    * @param message
    */
   private void displayToUser(String message) {
@@ -395,12 +474,11 @@ public class Server extends JFrame implements ActionListener {
   }
 
   /**
-   *
    * @param userInput
    */
   private void parseInput(String userInput) {
     Packet packet = new Packet();
-    if(userInput.startsWith("@")) {
+    if (userInput.startsWith("@")) {
       // TODO - implement special cases
     } else {
       String message = hostname + ": " + userInput;
@@ -415,7 +493,7 @@ public class Server extends JFrame implements ActionListener {
    */
   public void actionPerformed(ActionEvent event) {
     String userInput = textInput.getText();
-    if(userInput.equals("")) return;
+    if (userInput.equals("")) return;
     textInput.setText("");
     parseInput(userInput);
   }
@@ -441,7 +519,7 @@ public class Server extends JFrame implements ActionListener {
           pool.execute(serverThread);
           threadMap.put(threadCount, serverThread);
         } catch (Exception e) {
-          if(e instanceof SocketTimeoutException)
+          if (e instanceof SocketTimeoutException)
             continue;
           e.printStackTrace();
           if (!(e instanceof SocketException)) {
@@ -522,18 +600,18 @@ public class Server extends JFrame implements ActionListener {
   /**
    * Object holding user id #s of users that are members of a given room
    */
-  private class ServerRoom {
+  static private class ServerRoom {
     String roomName;
     Vector<Integer> members;
 
-    ServerRoom(String roomName, int initialMember) {
+    ServerRoom(int initialMember, String roomName) {
       this.roomName = roomName;
       members = new Vector<>();
       members.add(initialMember);
     }
 
-    void removeUser(int userid) {
-      members.removeIf(i -> i == userid);
+    void removeUser(int targetid) {
+      members.removeIf(i -> i == targetid);
     }
   }
 
@@ -560,7 +638,7 @@ public class Server extends JFrame implements ActionListener {
      * initializes the GUI for the login menu
      */
     private void loginGUISetup() {
-      setSize(550,250);
+      setSize(550, 250);
       setResizable(false);
       setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
       addWindowListener(new WindowAdapter() {
@@ -575,7 +653,7 @@ public class Server extends JFrame implements ActionListener {
       add(panel);
 
       // initialize feedback display
-      feedback = new JTextArea(5,40);
+      feedback = new JTextArea(5, 40);
       feedback.setLineWrap(true);
       feedback.setEditable(false);
       panel.add(new JScrollPane(feedback));
@@ -613,6 +691,7 @@ public class Server extends JFrame implements ActionListener {
 
     /**
      * appends feedback to the feedback display in the login menu
+     *
      * @param message - String of feedback to be appended to display
      */
     private void displayFeedback(String message) {
@@ -622,6 +701,7 @@ public class Server extends JFrame implements ActionListener {
 
     /**
      * on an action event occuring in the login menu, this function is called
+     *
      * @param event - ActionEvent object representing an event that has occurred in the login menu
      */
     public void actionPerformed(ActionEvent event) {

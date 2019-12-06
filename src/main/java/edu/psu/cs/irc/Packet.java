@@ -35,6 +35,7 @@ class Packet implements Serializable {
     command = "roomUpdate";
     this.message = message;
   }
+
   void sendMessageAll(String message) {
     clear();
     command = "sendMessageAll";
@@ -73,20 +74,14 @@ class Packet implements Serializable {
     this.targetid = targetid;
   }
 
-  void displayRoom(int targetid) {
-    clear();
-    command = "displayRoom";
-    this.targetid = targetid;
-  }
-
   void displayToUser(String message) {
     clear();
     command = "displayToUser";
     this.message = message;
   }
 
-  void serverShutdown() {
+  void shutdown() {
     clear();
-    command = "serverShutdown";
+    command = "shutdown";
   }
 }

@@ -29,8 +29,6 @@ public class Client extends JFrame implements ActionListener {
   private JTextField textInput;
   private JTextArea userDisplay;
   private JTextArea roomDisplay;
-  private String onlineUserList;
-  private String activeRoomList;
 
   // CLIENT METHODS
 
@@ -149,10 +147,9 @@ public class Client extends JFrame implements ActionListener {
       case "displayToUser":
         displayToUser(packet.message);
         break;
-      case "error":
-        //TODO
-      case "close":
-        //TODO
+      case "shutdown":
+        shutdown = true;
+        break;
       default:
         //TODO - error handling
     }
@@ -258,10 +255,94 @@ public class Client extends JFrame implements ActionListener {
     chatDisplay.setCaretPosition(chatDisplay.getDocument().getLength());
   }
 
+  /**
+   *
+   * @param userInput
+   */
   private void parseInput(String userInput) {
     Packet packet = new Packet();
-    if(userInput.startsWith("@")) {
-      // TODO - implement special cases
+    if (userInput.startsWith("@")) {
+      String [] input = userInput.split(" ", 2);
+      int targetid;
+      if (input.length < 2)
+        displayToUser("System: Insufficient arguments provided for command '" + userInput + "'.");
+      switch (input[0]) {
+        case "@user":
+          input = input[1].split(" ", 2);
+          try {
+            targetid = Integer.parseInt(input[0]);
+          } catch (Exception e) {
+            displayToUser("System: '" + input[0] + "' in command '" + userInput + "' is not a valid number.");
+            return;
+          }
+          if (input[1].equals("")) {
+            displayToUser("System: Cannot send an empty message to a user.");
+            return;
+          }
+          packet.sendMessageUser(targetid, userInput);
+          sendPacket(packet);
+          break;
+        case "@room":
+          input = input[1].split(" ", 2);
+          try {
+            targetid = Integer.parseInt(input[0]);
+          } catch (Exception e) {
+            displayToUser("System: '" + input[0] + "' in command '" + userInput + "' is not a valid number.");
+            return;
+          }
+          if (input[1].equals("")) {
+            displayToUser("System: Cannot send an empty message to a room.");
+            return;
+          }
+          packet.sendMessageRoom(targetid, userInput);
+          sendPacket(packet);
+          break;
+        case "@create":
+          if (input[1].equals("")) {
+            displayToUser("System: Cannot create a room with no name.");
+            return;
+          }
+          packet.createRoom(input[1]);
+          sendPacket(packet);
+          break;
+        case "@join":
+          if (input.length > 2) {
+            displayToUser("System: Too many arguments provided in command '" + userInput + "'.");
+            return;
+          }
+          try {
+            targetid = Integer.parseInt(input[1]);
+          } catch (Exception e) {
+            displayToUser("System: '" + input[1] + "' in command '" + userInput + "' is not a valid number.");
+            return;
+          }
+          packet.joinRoom(targetid);
+          sendPacket(packet);
+          break;
+        case "@leave":
+          if (input.length > 2) {
+            displayToUser("System: Too many arguments provided in command '" + userInput + "'.");
+            return;
+          }
+          try {
+            targetid = Integer.parseInt(input[1]);
+          } catch (Exception e) {
+            displayToUser("System: '" + input[1] + "' in command '" + userInput + "' is not a valid number.");
+            return;
+          }
+          packet.leaveRoom(targetid);
+          sendPacket(packet);
+          break;
+        default:
+          String message = "System: Unrecognized request '" + input[0] + "' in command '" + userInput + "'." +
+              "\n   Recognized Requests: " +
+              "\n      @user <user id #> <message>" +
+              "\n      @room <room id #> <message>" +
+              "\n      @create <room name>" +
+              "\n      @join <room id #>" +
+              "\n      @leave <room id #>";
+          displayToUser(message);
+      }
     } else {
       packet.sendMessageAll(userInput);
       sendPacket(packet);
@@ -273,7 +354,7 @@ public class Client extends JFrame implements ActionListener {
    */
   public void actionPerformed(ActionEvent event) {
     String userInput = textInput.getText();
-    if(userInput.equals("")) return;
+    if (userInput.equals("")) return;
     textInput.setText("");
     parseInput(userInput);
   }
@@ -400,7 +481,7 @@ public class Client extends JFrame implements ActionListener {
         String ip = ipField.getText();
         String portString = portField.getText();
         String username = usernameField.getText();
-        if(ip.equals("") || portString.equals("") || username.equals("")) {
+        if (ip.equals("") || portString.equals("") || username.equals("")) {
           displayFeedback("Please fill out the necessary fields to connect.");
           return;
         }
@@ -412,7 +493,7 @@ public class Client extends JFrame implements ActionListener {
           return;
         }
         displayFeedback("Attempting to connect to server " + ip + ":" + portString + "...");
-        if(!connectToServer(ip, port)) {
+        if (!connectToServer(ip, port)) {
           displayFeedback("Connection failed.");
           return;
         }
